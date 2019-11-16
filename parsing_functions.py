@@ -48,6 +48,7 @@ features = [
     "building_type",
     "area",
     "prague_district"
+    "floor"
 ]
 target = ["price"]
 
@@ -62,4 +63,5 @@ type_mapping = {
     "area": np.str_,
     "prague_district": np.float32,
     "price": np.float64,
+    "floor": np.int16
 }
