@@ -309,15 +309,15 @@ class sreality:
         for item in items:
             if item["name"] == "Stavba":
                 try:
-                    desc["stavba"] = item["value"]
+                    desc["building"] = item["value"]
                 except:
-                    desc["stavba"] = np.nan
+                    desc["building"] = np.nan
             if item["name"] == "Stav objektu":
                 try:
                     desc["property_state"] = item["value"]
                 except:
                     desc["property_state"] = np.nan
-            if item["name"] == "Vlastnictvi":
+            if item["name"] == "Vlastnictví":
                 try:
                     desc["ownership"] = item["value"]
                 except:
@@ -332,10 +332,6 @@ class sreality:
                     desc["area"] = item["value"]
                 except:
                     desc["area"] = np.nan
-                try:
-                    desc["area_unit"] = item["unit"]
-                except:
-                    desc["area_unit"] = np.nan
             if item["name"] == "Balkón":
                 try:
                     desc["balcony_area"] = item["value"]
@@ -347,9 +343,9 @@ class sreality:
                     desc["balcony_unit"] = np.nan
             if item["name"] == "Sklep":
                 try:
-                    desc["cellar"] = item["value"]
+                    desc["basement"] = item["value"]
                 except:
-                    desc["cellar"] = np.nan
+                    desc["basement"] = np.nan
             if item["name"] == "Garáž":
                 try:
                     desc["garage"] = item["value"]
