@@ -19,5 +19,6 @@ raw_df = raw_df.loc[:, features + target]
 
 raw_df = raw_df.astype(type_mapping)
 raw_df = raw_df.dropna(how = "any")
+raw_df = raw_df[raw_df.rooms!='unknown_byUs']
 raw_df.to_csv("modeling_data.csv", index=False)
 
