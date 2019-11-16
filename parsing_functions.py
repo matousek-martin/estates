@@ -9,6 +9,7 @@ rename_mapping = {
     "garage": "has_garage",
     "property_state": "property_state",
     "stavba": "building_type",
+    "podkategorie": "rooms",
     "area": "area",
     "prague_district": "prague_district",
     "cena_czk_value": "price",
@@ -47,7 +48,9 @@ features = [
     "property_state",
     "building_type",
     "area",
-    "prague_district"
+    "prague_district",
+    "rooms",
+    "floor",
 ]
 target = ["price"]
 
@@ -62,4 +65,6 @@ type_mapping = {
     "area": np.str_,
     "prague_district": np.float32,
     "price": np.float64,
+    "floor": np.int16,
+    "rooms": np.str_
 }
