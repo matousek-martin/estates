@@ -24,7 +24,7 @@ property_state_mapping = {
 }
 
 feature_transformation_mapping = {
-    "efficiency_category": lambda x: np.nan if pd.isnull(x) else x.split(" - ")[0],
+    "efficiency_category": lambda x: "Other" if pd.isnull(x) else x.split(" - ")[0],
     "floor": lambda x: 0 if "přízemí" in x else x.split(". podlaží")[0],
     "has_balcony": lambda x: not pd.isnull(x),
     "has_elevator": lambda x: False if (pd.isnull(x) or not x) else True,

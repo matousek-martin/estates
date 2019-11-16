@@ -18,6 +18,6 @@ raw_df.loc[:, feature_transformation_mapping.keys()] = raw_df.apply(
 raw_df = raw_df.loc[:, features + target]
 
 raw_df = raw_df.astype(type_mapping)
-
+raw_df = raw_df.dropna(how = "any")
 raw_df.to_csv("modeling_data.csv", index=False)
 
