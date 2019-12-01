@@ -223,7 +223,11 @@ class sreality:
 
         #initialize a dataframe with detaiuled info
         desc = {}
-        desc["prague_district"] = jsondata["locality_district_id"]
+        if jsondata["locality_district_id"]:
+            desc["prague_district"] = jsondata["locality_district_id"]
+        else:
+            desc["prague_district"] = None
+        
         #description
         desc['description'] = jsondata.get('meta_description', None)
 
@@ -351,11 +355,11 @@ class sreality:
                     desc["garage"] = item["value"]
                 except:
                     desc["garage"] = np.nan
-            if item["name"] == "Výtah":
+            if item["name"] == "Vybavení":
                 try:
-                    desc["elavator"] = item["value"]
+                    desc["furnished"] = item["value"]
                 except:
-                    desc["elavator"] = np.nan
+                    desc["furnished"] = np.nan
             if item["name"] == "Výtah":
                 try:
                     desc["elavator"] = item["value"]
