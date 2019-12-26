@@ -70,6 +70,7 @@ docs/_build/
 target/
 
 # Jupyter Notebook
+notebooks/
 .ipynb_checkpoints
 *.ipynb
 
@@ -109,3 +110,6 @@ venv.bak/
 
 #pdfs
 *.pdf
+
+# downloaded jsons
+estates/
