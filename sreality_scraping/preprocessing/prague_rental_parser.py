@@ -18,8 +18,8 @@ def is_prague_rental(estate):
     is_flat = estate['seo']['category_main_cb'] == 1
     prague_districts = [56, 57, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010]
     in_prague = estate['locality_district_id'] in prague_districts
-    if is_rental and is_flat and in_prague:
-        return estate
+    return is_rental and is_flat and in_prague
+
 
 def transform(estate):
     return rename(flatten(estate))
