@@ -1,5 +1,25 @@
 import numpy as np
 
+def is_prague_rental(estate):
+    """Parse flats that are for rent only in the Prague area.
+
+    
+    Parameters
+    ----------
+    estate : dict
+        Dictionary containing estate information. Includes houses, commercial space, lands and flats.
+    
+    Returns
+    -------
+    dict
+        Dictionary containing estate information. Includes flats only.
+    """
+    is_rental = estate['seo']['category_type_cb'] == 2
+    is_flat = estate['seo']['category_main_cb'] == 1
+    prague_districts = [56, 57, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010]
+    in_prague = estate['locality_district_id'] in prague_districts
+    if is_rental and is_flat and in_prague:
+        return estate
 
 def transform(estate):
     return rename(flatten(estate))
