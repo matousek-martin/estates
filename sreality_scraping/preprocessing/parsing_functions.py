@@ -1,49 +1,54 @@
 import numpy as np
 
+
 def is_prague_rental(estate):
     """Parse flats that are for rent only in the Prague area.
-
     
-    Parameters
-    ----------
-    estate : dict
-        Dictionary containing estate information. Includes houses, commercial space, lands and flats.
+    Args:
+        estate (dict): Dictionary containing estate information. Includes houses, commercial space, lands and flats.
     
-    Returns
-    -------
-    dict
-        Dictionary containing estate information. Includes flats only.
+    Returns:
+        [type]: Dictionary containing estate information. Includes flats only.
     """
-    is_rental = estate['seo']['category_type_cb'] == 2
-    is_flat = estate['seo']['category_main_cb'] == 1
-    prague_districts = [56, 57, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010]
-    in_prague = estate['locality_district_id'] in prague_districts
+    is_rental = estate["seo"]["category_type_cb"] == 2
+    is_flat = estate["seo"]["category_main_cb"] == 1
+    prague_districts = [
+        56,
+        57,
+        5001,
+        5002,
+        5003,
+        5004,
+        5005,
+        5006,
+        5007,
+        5008,
+        5009,
+        5010,
+    ]
+    in_prague = estate["locality_district_id"] in prague_districts
     return is_rental and is_flat and in_prague
 
 
 def flatten_json(dictionary):
-    """Transforms any nested dictionary into a one level dictionary.
+    """Normalize any nested dictionary/json.
     
-    Parameters
-    ----------
-    dictionary : dict
-        nested input dictionary
+    Args:
+        dictionary (dict): nested dictionary containing other dictionaries, lists, etc.
     
-    Returns
-    -------
-    dict
-        dictionary
+    Returns:
+        dict: normalized/flattened dictionary/json
     """
     out = {}
 
-    def flatten(x, name=''):
+    def flatten(x, name=""):
         if type(x) is dict:
             for a in x:
-                flatten(x[a], name + a + '_')
+                flatten(x[a], name + a + "_")
         elif type(x) is list:
             i = 0
             for a in x:
-                flatten(a, name + str(i) + '_')
+                flatten(a, name + str(i) + "_")
                 i += 1
         else:
             out[name[:-1]] = x
@@ -51,6 +56,39 @@ def flatten_json(dictionary):
     flatten(dictionary)
     return out
 
+
+### PREPARING STRINGS FOR FLATTENED JSON
+# good stuff
+# explicit
+"meta_description"
+"map_lon"
+"map_lat"
+"name_name"
+"name_value"
+"locality_name"
+"locality_value"
+"text_name"
+"text_value"
+"price_czk_unit"
+"price_czk_alt_value_raw"
+"price_czk_alt_unit"
+"price_czk_name"
+"price_czk_value"
+"price_czk_value_raw"
+"_links_self_href"
+"seo_category_main_cb"
+"seo_category_sub_cb"
+"seo_category_type_cb"
+"locality_district_id"
+"estate_id"
+"date_scraped"
+
+# for further eval
+"_embedded_seller"
+"_embedded_images"
+"poi_"
+"items_"
+"codeItems_"
 
 ### OLD FUNCTIONS
 def transform(estate):
