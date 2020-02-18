@@ -1,30 +1,30 @@
 import scrapy
 import json
 import os
+from config import Config
 from datetime import datetime
+import pymongo
 
 class SrealitySpider(scrapy.Spider):
     name = "sreality"
     per_page = 500
     stopping_page_number = None
 
-    def new_estate(self, url_suffix):
-        """Check if estate has already been scraped or not by comparing scraped id to the ones in the estate folder.
-        
-        Arguments:
-            url_suffix {string} -- url is provided as '/cs/v2/estates/1077595740'
+    def latest_estate(self):
+        """Retrieve newest estate in collection in Azure CosmosDB (MongoDB).
         
         Returns:
-            bool -- True if estate_id isn't already scraped (there's no json with this id in estates folder)
+            string -- id of the lastly added estate in the database 
         """
-        # read already scraped IDs
-        folder = 'estates/'
-        files = os.listdir(folder)
-        old_ids = [file.split('.')[0] for file in files]
-        # extract newly scraped ID from url
-        new_id = url_suffix.split('/')[-1]
-        # if new_id is not in old_ids, it is a new estate that hasn't been scraped
-        return not new_id in old_ids
+        # connect to collection to retrieve latest ID
+        uri = Config.AZURE_URI
+        client = pymongo.MongoClient(uri)
+        # db = estates, collection = sreality
+        col = client.estates.sreality
+        latest_estate = col.find().sort([('date_scraped', -1)]).limit(1)
+        # ids stored under 'estate_id'
+        latest_id = latest_estate[0]['estate_id']
+        return latest_id
 
     def start_requests(self):
         url = f"https://www.sreality.cz/api/cs/v2/estates?per_page={self.per_page}&page=1"
@@ -34,6 +34,7 @@ class SrealitySpider(scrapy.Spider):
         r = json.loads(response.body)
         # get number of pages as ... 'Number of total estates/number of estates per page'
         page_count = r["result_size"] // self.per_page + 1
+        new_id = url_suffix.split('/')[-1]
         # parsing links to estates in initial api response
         for estate in r["_embedded"]["estates"]:
             # url is provided as '/cs/v2/estates/1077595740'

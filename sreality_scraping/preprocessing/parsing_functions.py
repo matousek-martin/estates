@@ -21,6 +21,38 @@ def is_prague_rental(estate):
     return is_rental and is_flat and in_prague
 
 
+def flatten_json(dictionary):
+    """Transforms any nested dictionary into a one level dictionary.
+    
+    Parameters
+    ----------
+    dictionary : dict
+        nested input dictionary
+    
+    Returns
+    -------
+    dict
+        dictionary
+    """
+    out = {}
+
+    def flatten(x, name=''):
+        if type(x) is dict:
+            for a in x:
+                flatten(x[a], name + a + '_')
+        elif type(x) is list:
+            i = 0
+            for a in x:
+                flatten(a, name + str(i) + '_')
+                i += 1
+        else:
+            out[name[:-1]] = x
+
+    flatten(dictionary)
+    return out
+
+
+### OLD FUNCTIONS
 def transform(estate):
     return rename(flatten(estate))
 
