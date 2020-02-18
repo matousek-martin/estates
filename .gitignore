@@ -113,3 +113,6 @@ venv.bak/
 
 # downloaded jsons
 estates/
+
+# api keys
+api_keys/
