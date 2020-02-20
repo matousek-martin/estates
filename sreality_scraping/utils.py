@@ -1,5 +1,9 @@
 import os
 import pickle
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
+
 
 def new_estate(self, url_suffix):
     """Check if estate has already been scraped or not by comparing scraped id to the ones in the estate folder.
@@ -40,3 +44,19 @@ def load_cache() -> None:
     with open("cache.txt", "rb") as fp:  # Unpickling
         cache = pickle.load(fp)
     return cache
+
+
+def connect_firestore(path: str):
+    """Creates a Google Cloud Firestore instance.
+    
+    Args:
+        path (str): path to json credentials
+    
+    Returns:
+        class: Google Cloud Firestore instance
+    """
+    # Using a service account
+    cred = credentials.Certificate(path)
+    firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    return db
