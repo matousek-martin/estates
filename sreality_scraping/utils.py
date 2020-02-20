@@ -5,6 +5,33 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 
 
+def flatten_json(dictionary: dict) -> dict:
+    """Flattens/normalizes any nested (including list/other dicts) dictionary/json.
+    
+    Args:
+        dictionary (dict): nested dict
+    
+    Returns:
+        dict: flattened dictionary
+    """
+    out = {}
+
+    def flatten(x, name=""):
+        if type(x) is dict:
+            for a in x:
+                flatten(x[a], name + a + "_")
+        elif type(x) is list:
+            i = 0
+            for a in x:
+                flatten(a, name + str(i) + "_")
+                i += 1
+        else:
+            out[name[:-1]] = x
+
+    flatten(y)
+    return out
+
+
 def new_estate(self, url_suffix):
     """Check if estate has already been scraped or not by comparing scraped id to the ones in the estate folder.
         
@@ -35,7 +62,7 @@ def update_cache(scraped_estates: list) -> None:
     return None
 
 
-def load_cache() -> None:
+def load_cache() -> list:
     """Loads cache.txt. This was used during the initial filling of NoSQL to avoid too many reads per day.
     
     Returns:
