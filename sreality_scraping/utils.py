@@ -1,5 +1,5 @@
 import os
-
+import pickle
 
 def new_estate(self, url_suffix):
     """Check if estate has already been scraped or not by comparing scraped id to the ones in the estate folder.
@@ -19,3 +19,24 @@ def new_estate(self, url_suffix):
     # if new_id is not in old_ids, it is a new estate that hasn't been scraped
     return not new_id in old_ids
 
+
+def update_cache(scraped_estates: list) -> None:
+    """Updates cache.txt with newly scraped estate IDs. This was used during the initial filling of NoSQL to avoid too many reads per day.
+    
+    Args:
+        scraped_estates (list): updated list of estate IDs
+    """
+    with open("cache.txt", "wb") as fp:  # Pickling
+        pickle.dump(scraped_estates, fp)
+    return None
+
+
+def load_cache() -> None:
+    """Loads cache.txt. This was used during the initial filling of NoSQL to avoid too many reads per day.
+    
+    Returns:
+        list: loaded cache file, list containing estate IDs
+    """
+    with open("cache.txt", "rb") as fp:  # Unpickling
+        cache = pickle.load(fp)
+    return cache
