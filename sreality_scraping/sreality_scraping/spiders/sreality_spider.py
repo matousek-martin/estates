@@ -2,7 +2,7 @@ import scrapy
 import json
 import os
 from datetime import datetime
-from utils import load_cache, update_cache, connect_firestore
+from utils import load_cache, update_cache, connect_firestore, flatten_json
 
 
 class SrealitySpider(scrapy.Spider):
@@ -10,7 +10,7 @@ class SrealitySpider(scrapy.Spider):
     per_page = 500
     cache = load_cache()
     db = connect_firestore("../notebooks/estates-b0e1b-f074b83c9111.json")
-
+    stopping_count = 0
     def start_requests(self):
         url = (
             f"https://www.sreality.cz/api/cs/v2/estates?per_page={self.per_page}&page=1"
@@ -25,8 +25,8 @@ class SrealitySpider(scrapy.Spider):
         for estate in r["_embedded"]["estates"]:
             # url is provided as '/cs/v2/estates/1077595740'
             url_suffix = estate["_links"]["self"]["href"]
-            self.estate_id = url_suffix.split("/")[-1]
-            if self.estate_id not in self.cache:
+            estate_id = url_suffix.split("/")[-1]
+            if estate_id not in self.cache:
                 # we combine it with the prefix from supplied url in self.start_requests
                 url_prefix = response.url.split("/cs")[0]
                 url_estate = url_prefix + url_suffix
@@ -37,7 +37,7 @@ class SrealitySpider(scrapy.Spider):
         # (2, page_count + 1) due to how range works and we already have the first page
         for page_num in range(2, page_count):
             # scrape only non-scraped estates
-            while len(self.cache) <= 2000:
+            if self.stopping_count <= 2000:
                 # split at "&page=\d" with the next page's number and callback to parse
                 first_page = response.url.split("&")[0]
                 next_page = first_page + f"&page={page_num}"
@@ -48,9 +48,14 @@ class SrealitySpider(scrapy.Spider):
         # construct json to save
         data = json.loads(response.body)
         data["date_scraped"] = datetime.utcnow().strftime("%Y/%m/%d %H:%M:%S")
+        # gc firestore doesn't allow nested arrays
+        # implemented primitive<<< preprocessing of dicts
+        data = flatten_json(data)
         # create document reference within sreality collection in db
-        doc_ref = self.db.collection("sreality").document(self.estate_id)
+        estate_id = response.url.split("/")[-1]
+        doc_ref = self.db.collection("sreality").document(estate_id)
         doc_ref.set(data)
         # increment by one to stop after 2000 requests due to limit
-        self.cache.append(self.estate_id)
+        self.stopping_count += 1
+        self.cache.append(estate_id)
         update_cache(self.cache)
