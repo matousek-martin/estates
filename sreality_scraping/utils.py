@@ -28,7 +28,7 @@ def flatten_json(dictionary: dict) -> dict:
         else:
             out[name[:-1]] = x
 
-    flatten(y)
+    flatten(dictionary)
     return out
 
 
