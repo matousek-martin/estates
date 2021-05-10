@@ -2,16 +2,7 @@ import logging
 from functools import reduce
 from typing import Dict, Any
 
-import boto3
 import requests
-
-
-def get_newest_file(bucket: str, prefix: str) -> str:
-    s3 = boto3.client(service_name='s3')
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
-    sorted_response = sorted(response['Contents'], key=lambda x: x['LastModified'])
-    file_path = sorted_response.pop()['Key']
-    return file_path.strip(prefix)
 
 
 def start_requests(last_estate_id: str) -> Dict:
@@ -25,8 +16,8 @@ def start_requests(last_estate_id: str) -> Dict:
     """
     # Calculate number of API pages based on result size and estates per page
     base_url = 'https://www.sreality.cz/api/'
-    r = requests.get(base_url + 'cs/v2/estates?per_page=1&page=1')
-    num_pages = r.json()['result_size'] // 500
+    res = requests.get(base_url + 'cs/v2/estates?per_page=1&page=1')
+    num_pages = res.json()['result_size'] // 500
 
     # Obtain url suffix for each estate up until the newest from last scrape
     estate_urls = {}
@@ -51,12 +42,12 @@ def start_requests(last_estate_id: str) -> Dict:
             break
 
     estates = {}
-    logging.info(f'Scraping {len(estate_urls)} estates')
+    logging.info('Scraping %i estates' % len(estate_urls))
     for _id, suffix in estate_urls.items():
         url = base_url + suffix
-        r = requests.get(url)
-        if r.status_code == 200:
-            estate = r.json()
+        res = requests.get(url)
+        if res.status_code == 200:
+            estate = res.json()
             estate = parse(estate)
             estates[_id] = estate
     return estates
@@ -91,14 +82,17 @@ def parse(estate: Dict) -> Dict:
         "estate_disposition": extract(estate, "seo.category_sub_cb"),
         "estate_rental_or_sell": extract(estate, "seo.category_type_cb"),
         "estate_locality_district": extract(estate, "locality_district_id"),
-        "estate_longitude": extract(estate, "map.lon"), "estate_latitude": extract(estate, "map.lat"),
-        'estate_map_zoom': extract(estate, 'map.zoom'), "estate_images": [
+        "estate_longitude": extract(estate, "map.lon"),
+        "estate_latitude": extract(estate, "map.lat"),
+        'estate_map_zoom': extract(estate, 'map.zoom'),
+        "estate_images": [
             image["_links"]["view"]["href"]
             for image in extract(estate, "_embedded.images", default=[])
         ],
         # Seller
         "seller_ico": extract(estate, "_embedded.seller._embedded.premise.ico"),
-        "seller_email": extract(estate, "_embedded.seller._embedded.premise.email"), "seller_numbers": [
+        "seller_email": extract(estate, "_embedded.seller._embedded.premise.email"),
+        "seller_numbers": [
             tel["code"] + tel["number"]
             for tel in extract(estate, "_embedded.seller._embedded.premise.phones", default=[])
         ],

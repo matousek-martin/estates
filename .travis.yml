@@ -1,0 +1,18 @@
+language: minimal
+dist: bionic
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install python3.8
+  - sudo apt-get install python3-pip
+install:
+  - pip3 install awscli
+stages:
+  - lambda
+jobs:
+  include:
+    - stage: lambda
+      script:
+        - aws configure set aws_access_key_id $AWS_ACCESS_KEY
+        - aws configure set aws_secret_access_key $AWS_SECRET_KEY
+        - aws configure set region $AWS_REGION
+        - make lambda
