@@ -70,9 +70,7 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-notebooks/
 .ipynb_checkpoints
-*.ipynb
 
 # pyenv
 .python-version
@@ -110,9 +108,3 @@ venv.bak/
 
 #pdfs
 *.pdf
-
-# downloaded jsons
-estates/
-
-# api keys
-api_keys/
