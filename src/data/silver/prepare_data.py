@@ -1,56 +1,23 @@
-import logging
 from functools import reduce
 from typing import Dict, Any
 
-import requests
+import pandas as pd
 
 
-def start_requests(last_estate_id: str) -> Dict:
-    """Scrape all newly added estates from API
+def json_to_pandas(data: Dict) -> pd.DataFrame:
+    """Loads a parsed estate.json
 
     Args:
-        last_estate_id (str): estate_id of the most recent estate added (from last scrape)
+        data: A single estate to be parsed
 
     Returns:
-        Dict: result dict in format {estate_id_1: {estate_info_1}, ... estate_id_N: {estate_info_N}}
+        pd.DataFrame: A semi-processed dataframe containing relevant estate information
     """
-    # Calculate number of API pages based on result size and estates per page
-    base_url = 'https://www.sreality.cz/api/'
-    res = requests.get(base_url + 'cs/v2/estates?per_page=1&page=1')
-    num_pages = res.json()['result_size'] // 500
-
-    # Obtain url suffix for each estate up until the newest from last scrape
-    estate_urls = {}
-    for page in range(num_pages):
-        url = base_url + f'cs/v2/estates?per_page=500&page={page}'
-        r = requests.get(url)
-        estates = r.json()["_embedded"]["estates"]
-
-        for estate in estates:
-            estate_url = estate["_links"]["self"]["href"]
-            estate_id = estate_url.split("/")[-1]
-
-            # Break out of nested loop
-            already_scraped = estate_id == last_estate_id
-            if already_scraped:
-                break
-
-            estate_urls[estate_id] = estate_url
-
-        # TODO: Replace with something smarter?
-        if already_scraped:
-            break
-
-    estates = {}
-    logging.info('Scraping %i estates' % len(estate_urls))
-    for _id, suffix in estate_urls.items():
-        url = base_url + suffix
-        res = requests.get(url)
-        if res.status_code == 200:
-            estate = res.json()
-            estate = parse(estate)
-            estates[_id] = estate
-    return estates
+    df = pd.DataFrame.from_dict(data, orient='index')
+    new_col_names = ['estate_id'] + df.columns.to_list()
+    df = df.reset_index()
+    df.columns = new_col_names
+    return df
 
 
 def parse(estate: Dict) -> Dict:
@@ -60,18 +27,8 @@ def parse(estate: Dict) -> Dict:
         estate (Dict): a dictionary containing estate information in the Sreality API format
 
     Returns:
-        Dict: flattened dictionary with data for the price prediction model and data for the website
+        Dict: Flattened dictionary with data for the price prediction model and data for the website
     """
-
-    def extract(dictionary: Dict, keys: str, default: Any = None) -> Any:
-        # Wrap around dictionary item, return None or empty list in case it does not exist
-        # https://stackoverflow.com/questions/25833613/safe-method-to-get-value-of-nested-dictionary
-        return reduce(
-            lambda d, key: d.get(key, default)
-            if isinstance(d, dict)
-            else default, keys.split("."), dictionary
-        )
-
     estate_flattened = {
         # Web
         # Estate
@@ -115,3 +72,22 @@ def parse(estate: Dict) -> Dict:
 
     return estate_flattened
 
+
+def extract(dictionary: Dict, keys: str, default: Any = None) -> Any:
+    """Wrap around dictionary item, return None or empty list in case it does not exist
+    # https://stackoverflow.com/questions/25833613/safe-method-to-get-value-of-nested-dictionary
+
+    Args:
+        dictionary: dictionary to parse
+        keys: path to item, e.g. dict['level1']['level2'] => level1.level2
+        default: what to return in case of None
+
+    Returns:
+        Any: Extracted
+
+    """
+    return reduce(
+        lambda d, key: d.get(key, default)
+        if isinstance(d, dict)
+        else default, keys.split("."), dictionary
+    )

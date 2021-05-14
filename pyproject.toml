@@ -9,6 +9,7 @@ license = "MIT"
 python = "^3.8"
 boto3 = "^1.17.72"
 requests = "^2.25.1"
+pandas = "^1.2.4"
 
 [tool.poetry.dev-dependencies]
 jupyter = "^1.0.0"
