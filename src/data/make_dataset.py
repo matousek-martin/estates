@@ -18,9 +18,9 @@ def preprocess_price(rentals: pd.DataFrame) -> pd.Series:
 def preprocess_efficiency(rentals: pd.DataFrame) -> pd.Series:
     return (
         rentals
-            .loc[:, 'Energetická náročnost budovy']
-            .apply(lambda x: re.match(r'Třída \w', x)[0] if isinstance(x, str) else x)
-            .map(efficiency_mapping)
+        .loc[:, 'Energetická náročnost budovy']
+        .apply(lambda x: re.match(r'Třída \w', x)[0] if isinstance(x, str) else x)
+        .map(efficiency_mapping)
     )
 
 
