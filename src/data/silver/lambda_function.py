@@ -1,9 +1,11 @@
+import time
 import json
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 from decimal import Decimal
 from datetime import datetime
+
 
 import boto3
 import pandas as pd
@@ -12,6 +14,9 @@ from columns import columns
 
 BUCKET = 'estates-9036941568'
 SILVER = 'data/silver'
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event: Dict, _) -> bool:
@@ -37,13 +42,9 @@ def lambda_handler(event: Dict, _) -> bool:
     data = download_json_s3(file_key, bucket_name)
 
     # Save preprocessed data for web to DynamoDB
-    web_data = dict()
-    for _id, items in data.items():
-        items = {item: value for item, value in items.items() if item in columns}
-        items['timestamp'] = datetime.now().strftime("%Y%m%d-%H%M%S")
-        web_data[_id] = items
-    logging.info('Saving DynamoDB - i% estates' % len(web_data.keys()))
-    upload_json_dynamodb(web_data, table='estates')
+    records = bronze_to_records(data, columns)
+    logging.info('Saving DynamoDB - %i estates' % len(records))
+    upload_json_dynamodb(records, table='estates', chunk_size=50)
 
     # Save dataframe to the silver layer
     estates = json_to_pandas(data)
@@ -71,25 +72,60 @@ def download_json_s3(file_key: str, bucket: str) -> Dict:
     return json_content
 
 
-def upload_json_dynamodb(data: Dict, table: str) -> bool:
-    if not data:
+def bronze_to_records(data: Dict, columns: List[str]) -> List[Dict]:
+    """Transforms data from bronze into records suitable for DynamoDB
+
+    Args:
+        data: scraped estates from bronze layer
+        columns: a list of columns picked for web
+
+    Returns:
+        list of estates (Dicts) for DynamoDB
+    """
+    records = list()
+    for estate_id, items in data.items():
+        record = dict()
+        for column, value in items.items():
+            if column in columns:
+                record[column] = value
+        record['estate_id'] = estate_id
+        # Convert floats to Decimal
+        # https://blog.ruanbekker.com/blog/2019/02/05/convert-float-to-decimal-data-types-for-boto3-dynamodb-using-python/
+        record = json.loads(json.dumps(record), parse_float=Decimal)
+        records.append(record)
+    return records
+
+
+def upload_json_dynamodb(records: List[Dict], table: str, chunk_size: int) -> bool:
+    """Writes newly added estates to DynamoDB table
+
+    Args:
+        records: a list of estates
+        table: AWS DynamoDB table name
+        chunk_size: split records into chunks of size 'chunk_size' to avoid put_item size limits
+
+    Returns:
+        (bool): success True/False
+    """
+    # Skip if there are not new estates to upload
+    if not records:
         return False
 
-    # Convert floats to Decimal
-    # https://blog.ruanbekker.com/blog/2019/02/05/convert-float-to-decimal-data-types-for-boto3-dynamodb-using-python/
-    ddb_data = json.loads(json.dumps(data), parse_float=Decimal)
-
-    # Batch write to Dynamo
+    # Write to Dynamo
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(table)
     with table.batch_writer() as batch:
-        for _id, items in ddb_data.items():
-            batch.put_item(
-                Item={
-                    'estate_id': _id,
-                    'items': items
-                }
-            )
+        for i in range(0, len(records), chunk_size):
+            batch.put_item(Item={
+                # Iso format for creation timestamp
+                # Unix for time to live (expire after 30 days)
+                # https://stackoverflow.com/questions/40561484/what-data-type-should-be-use-for-timestamp-in-dynamodb
+                # https://jun711.github.io/aws/how-to-set-ttl-for-amazon-dynamodb-entries/
+                'created_at': datetime.now().replace(microsecond=0).isoformat(),
+                'expires_at': int(time.time() + 30 * 24 * 60 * 60),
+                'estates': records[i: i+chunk_size]
+            })
+            time.sleep(1)
     return True
 
 
