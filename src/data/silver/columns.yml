@@ -1,0 +1,90 @@
+images:
+  - estate_id
+  - estate_images
+model:
+  - estate_id
+  - Celková cena
+  - Užitná plocha
+  - Plocha podlahová
+  - Plocha pozemku
+  - Plocha zahrady
+  - Podlaží
+  - estate_locality_district
+  - estate_disposition
+  - estate_category_main_cb
+  - Stavba
+  - Stav objektu
+  - Poznámka k ceně
+  - Energetická náročnost budovy
+  - Vlastnictví
+  - Tram
+  - Vybavení
+  - Výtah
+  - Divadlo
+  - Kino
+  - Obchod
+  - Cukrárna
+  - Veterinář
+  - Vlak
+  - Lékárna
+  - Bankomat
+  - Sportoviště
+  - Bus MHD
+  - Lékař
+  - Škola
+  - Školka
+  - Hospoda
+  - Pošta
+  - Restaurace
+  - Večerka
+  - Hřiště
+  - Doprava
+  - Bazén
+  - Balkón
+  - Lodžie
+  - Terasa
+  - Odpad
+  - Elektřina
+  - Voda
+  - Topení
+  - Plyn
+  - Umístění objektu
+  - Telekomunikace
+  - Sklep
+  - Přírodní zajímavost
+  - Metro
+  - Bezbariérový
+  - Komunikace
+  - Parkování
+  - Typ domu
+  - Typ bytu
+  - Poloha domu
+  - Garáž
+web:
+  - estate_id
+  - created_at
+  - estate_title
+  - estate_description_short
+  - estate_description_long
+  - estate_locality_district
+  - estate_disposition
+  - estate_category_main_cb
+  - estate_longitude
+  - estate_latitude
+  - estate_map_zoom
+  - seller_ico
+  - seller_email
+  - seller_numbers
+  - seller_web
+  - seller_address
+  - seller_name
+  - Celková cena
+  - Užitná plocha
+  - Podlaží
+  - Stavba
+  - Stav objektu
+  - Poznámka k ceně
+  - Energetická náročnost budovy
+  - Vlastnictví
+  - Vybavení
+  - Výtah

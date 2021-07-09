@@ -1,19 +1,15 @@
-import time
 import json
+import base64
 import logging
-from pathlib import Path
-from typing import Dict, List
-from decimal import Decimal
+from typing import Dict
 from datetime import datetime
 
-
 import boto3
+import yaml
+from botocore.exceptions import ClientError
+import sqlalchemy
 import pandas as pd
 
-from columns import columns
-
-BUCKET = 'estates-9036941568'
-SILVER = 'data/silver'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -41,17 +37,32 @@ def lambda_handler(event: Dict, _) -> bool:
     logging.info('Downloading - File: %s Bucket: %s' % (file_key, bucket_name))
     data = download_json_s3(file_key, bucket_name)
 
-    # Save preprocessed data for web to DynamoDB
-    records = bronze_to_records(data, columns)
-    logging.info('Saving DynamoDB - %i estates' % len(records))
-    upload_json_dynamodb(records, table='estates', chunk_size=50)
-
-    # Save dataframe to the silver layer
+    # Load bronze into dataframe
     estates = json_to_pandas(data)
-    file_name = Path(file_key).stem
-    file_path = f's3://{BUCKET}/data/silver/{file_name}.csv'
-    logging.info('Saving (S3) - File: %s' % file_path)
-    estates.to_csv(file_path, index=False)
+    estates = estates.assign(created_at=datetime.now().strftime("%Y%m%d"))
+
+    # Load RDS credentials and columns, create connection
+    secret = get_secret(secret_name="estates-rds", region_name="eu-central-1")
+    engine = sqlalchemy.create_engine("postgresql+psycopg2://{username}:{password}@{host}:{port}".format(**secret))
+    columns = read_yaml('columns.yml')
+
+    # Create values for ID columns
+    start = fetch_max_id(engine, table='silver_estates_web') + 1
+    end = start + estates.shape[0]
+    estate_ids = [_id for _id in range(start, end)]
+    estates = estates.assign(estate_id=estate_ids)
+
+    # Split into tables
+    logging.info('Saving (Web & Model) - %i estates' % estates.shape[0])
+    model_cols = [col for col in estates.columns if col in columns['model']]
+    estates.loc[:, model_cols].to_sql(name='silver_estates_model', con=engine, if_exists='append', index=False)
+
+    web_cols = [col for col in estates.columns if col in columns['web']]
+    estates.loc[:, web_cols].to_sql(name='silver_estates_web', con=engine, if_exists='append', index=False)
+
+    images = estates.loc[:, columns['images']].explode('estate_images')
+    logging.info('Saving (Images) - %i images' % images.shape[0])
+    images.to_sql(name='silver_estate_images', con=engine, if_exists='append', index=False)
     return True
 
 
@@ -72,63 +83,6 @@ def download_json_s3(file_key: str, bucket: str) -> Dict:
     return json_content
 
 
-def bronze_to_records(data: Dict, columns: List[str]) -> List[Dict]:
-    """Transforms data from bronze into records suitable for DynamoDB
-
-    Args:
-        data: scraped estates from bronze layer
-        columns: a list of columns picked for web
-
-    Returns:
-        list of estates (Dicts) for DynamoDB
-    """
-    records = list()
-    for estate_id, items in data.items():
-        record = dict()
-        for column, value in items.items():
-            if column in columns:
-                record[column] = value
-        record['estate_id'] = estate_id
-        # Convert floats to Decimal
-        # https://blog.ruanbekker.com/blog/2019/02/05/convert-float-to-decimal-data-types-for-boto3-dynamodb-using-python/
-        record = json.loads(json.dumps(record), parse_float=Decimal)
-        records.append(record)
-    return records
-
-
-def upload_json_dynamodb(records: List[Dict], table: str, chunk_size: int) -> bool:
-    """Writes newly added estates to DynamoDB table
-
-    Args:
-        records: a list of estates
-        table: AWS DynamoDB table name
-        chunk_size: split records into chunks of size 'chunk_size' to avoid put_item size limits
-
-    Returns:
-        (bool): success True/False
-    """
-    # Skip if there are not new estates to upload
-    if not records:
-        return False
-
-    # Write to Dynamo
-    dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table(table)
-    with table.batch_writer() as batch:
-        for i in range(0, len(records), chunk_size):
-            batch.put_item(Item={
-                # Iso format for creation timestamp
-                # Unix for time to live (expire after 30 days)
-                # https://stackoverflow.com/questions/40561484/what-data-type-should-be-use-for-timestamp-in-dynamodb
-                # https://jun711.github.io/aws/how-to-set-ttl-for-amazon-dynamodb-entries/
-                'created_at': datetime.now().replace(microsecond=0).isoformat(),
-                'expires_at': int(time.time() + 30 * 24 * 60 * 60),
-                'estates': records[i: i+chunk_size]
-            })
-            time.sleep(1)
-    return True
-
-
 def json_to_pandas(data: Dict) -> pd.DataFrame:
     """Loads a parsed estate.json
 
@@ -143,3 +97,60 @@ def json_to_pandas(data: Dict) -> pd.DataFrame:
     dataframe = dataframe.reset_index()
     dataframe.columns = new_col_names
     return dataframe
+
+
+def get_secret(secret_name: str, region_name: str) -> Dict:
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name,
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            print("The requested secret " + secret_name + " was not found")
+        elif e.response['Error']['Code'] == 'InvalidRequestException':
+            print("The request was invalid due to:", e)
+        elif e.response['Error']['Code'] == 'InvalidParameterException':
+            print("The request had invalid params:", e)
+        elif e.response['Error']['Code'] == 'DecryptionFailure':
+            print("The requested secret can't be decrypted using the provided KMS key:", e)
+        elif e.response['Error']['Code'] == 'InternalServiceError':
+            print("An error occurred on service side:", e)
+    else:
+        # Secrets Manager decrypts the secret value using the associated KMS CMK
+        # Depending on whether the secret was a string or binary,
+        # only one of these fields will be populated
+        if 'SecretString' in get_secret_value_response:
+            secret = get_secret_value_response['SecretString']
+        else:
+            secret = base64.b64decode(get_secret_value_response['SecretBinary'])
+
+        return json.loads(secret)
+
+
+def read_yaml(path: str) -> Dict:
+    """Reads YAML
+
+    Args:
+        path: path to yaml with file_name.y(a)ml
+
+    Returns:
+        parsed yaml as dict
+    """
+    with open(path, 'r') as stream:
+        file = yaml.safe_load(stream)
+    return file
+
+
+def fetch_max_id(engine: sqlalchemy.engine, table: str) -> int:
+    query = f'''
+    SELECT estate_id 
+    FROM {table}
+    ORDER BY estate_id DESC 
+    LIMIT 1
+    '''
+    res = engine.execute(query)
+    return res.first()[0]
