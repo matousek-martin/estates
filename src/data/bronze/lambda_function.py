@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from datetime import datetime, timedelta
@@ -7,8 +8,6 @@ import boto3
 
 from scraper import get_estate_urls, start_requests
 
-BUCKET = 'estates-9036941568'
-BRONZE = 'data/bronze'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -53,12 +52,18 @@ def lambda_handler(event: Dict, _) -> bool:
     Returns:
         bool: returns True if successful
     """
+    # Load Lambda environment variables
+    bucket = os.environ.get('BUCKET')
+    layer = os.environ.get('LAYER')
+
     # Get ID of estate from previous scrape
-    newest_file = get_newest_file(BUCKET, BRONZE, 30)
+    logging.info('Retrieving newest file from %s.' % layer)
+    newest_file = get_newest_file(bucket, layer, 30)
     last_estate_id = newest_file.strip('.json').split('_')[-1]
 
     # Scrape new estates
     estate_urls = get_estate_urls(last_estate_id)
+    logging.info('Scraping %i estates' % len(estate_urls))
     estates = start_requests(estate_urls)
     if not estates:
         return False
@@ -72,5 +77,5 @@ def lambda_handler(event: Dict, _) -> bool:
     # Save to S3 bucket
     logging.info('Saving estates to S3')
     s3 = boto3.resource('s3')
-    s3.Bucket(BUCKET).put_object(Key=BRONZE + '/' + file_name, Body=file)
+    s3.Bucket(bucket).put_object(Key=layer + '/' + file_name, Body=file)
     return True

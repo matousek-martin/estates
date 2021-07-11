@@ -21,10 +21,22 @@ def get_estate_urls(last_estate_id: str) -> Dict:
 
     # Obtain url suffix for each estate up until the newest from last scrape
     estate_urls = {}
-    for page in range(num_pages):
+    for page in range(1, num_pages):
         url = base_url + f'cs/v2/estates?per_page=500&page={page}'
-        res = requests.get(url)
-        estates = res.json()["_embedded"]["estates"]
+
+        # EAFP
+        try:
+            res = requests.get(url)
+            res.raise_for_status()
+        except requests.exceptions.HTTPError as error:
+            logging.error(error)
+
+        # Some API responses are missing the content
+        # which causes the entire scraper to fail
+        res = res.json().get("_embedded")
+        if res is None:
+            continue
+        estates = res["estates"]
 
         for estate in estates:
             estate_url = estate["_links"]["self"]["href"]
@@ -50,7 +62,6 @@ def start_requests(urls: Dict) -> Dict:
     """
     base_url = 'https://www.sreality.cz/api/'
     estates = {}
-    logging.info('Scraping %i estates' % len(urls))
     for _id, suffix in urls.items():
         url = base_url + suffix
         res = requests.get(url)
