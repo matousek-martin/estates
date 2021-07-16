@@ -54,7 +54,7 @@ endif
 	aws s3 cp $(SILVER_DIR)/silver.zip s3://$(BUCKET)/lambda/silver.zip
 	aws lambda update-function-code --function-name $(SILVER_LAMBDA) --s3-bucket $(BUCKET) --s3-key lambda/silver.zip
 ifeq ($(travis), )
-	find . \! -name 'columns.yml' \! -name 'lambda_function.py' \! -name 'requirements.txt' -path '*$(SILVER_DIR)*' -delete
+	find . \! -name 'columns.yml' \! -name 'lambda_function.py' \! -name 'requirements.txt' \! -name 'utils.py' -path '*$(SILVER_DIR)*' -delete
 endif
 
 ## Initiate python environment
