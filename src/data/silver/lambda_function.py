@@ -1,14 +1,11 @@
-import json
-import base64
 import logging
 from typing import Dict
 from datetime import datetime
 
-import boto3
-import yaml
-from botocore.exceptions import ClientError
 import sqlalchemy
 import pandas as pd
+
+from utils import get_secret, read_yaml, download_json_s3
 
 
 logger = logging.getLogger()
@@ -39,7 +36,7 @@ def lambda_handler(event: Dict, _) -> bool:
 
     # Load bronze into dataframe
     estates = json_to_pandas(data)
-    estates = estates.assign(created_at=datetime.now().strftime("%Y%m%d"))
+    estates = estates.assign(created_at=datetime.now().isoformat())
 
     # Load RDS credentials and columns, create connection
     secret = get_secret(secret_name="estates-rds", region_name="eu-central-1")
@@ -66,23 +63,6 @@ def lambda_handler(event: Dict, _) -> bool:
     return True
 
 
-def download_json_s3(file_key: str, bucket: str) -> Dict:
-    """Downloads a json file from S3
-
-    Args:
-        file_key: name of file incl. folder(s)
-        bucket: S3 bucket
-
-    Returns:
-        Dict: Requested .json file
-    """
-    s3 = boto3.resource('s3')
-    content_object = s3.Object(bucket, file_key)
-    file_content = content_object.get()['Body'].read().decode('utf-8')
-    json_content = json.loads(file_content)
-    return json_content
-
-
 def json_to_pandas(data: Dict) -> pd.DataFrame:
     """Loads a parsed estate.json
 
@@ -99,53 +79,16 @@ def json_to_pandas(data: Dict) -> pd.DataFrame:
     return dataframe
 
 
-def get_secret(secret_name: str, region_name: str) -> Dict:
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name,
-    )
-
-    try:
-        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    except ClientError as e:
-        if e.response['Error']['Code'] == 'ResourceNotFoundException':
-            print("The requested secret " + secret_name + " was not found")
-        elif e.response['Error']['Code'] == 'InvalidRequestException':
-            print("The request was invalid due to:", e)
-        elif e.response['Error']['Code'] == 'InvalidParameterException':
-            print("The request had invalid params:", e)
-        elif e.response['Error']['Code'] == 'DecryptionFailure':
-            print("The requested secret can't be decrypted using the provided KMS key:", e)
-        elif e.response['Error']['Code'] == 'InternalServiceError':
-            print("An error occurred on service side:", e)
-    else:
-        # Secrets Manager decrypts the secret value using the associated KMS CMK
-        # Depending on whether the secret was a string or binary,
-        # only one of these fields will be populated
-        if 'SecretString' in get_secret_value_response:
-            secret = get_secret_value_response['SecretString']
-        else:
-            secret = base64.b64decode(get_secret_value_response['SecretBinary'])
-
-        return json.loads(secret)
-
-
-def read_yaml(path: str) -> Dict:
-    """Reads YAML
+def fetch_max_id(engine: sqlalchemy.engine, table: str) -> int:
+    """Query given table for the largest estate_id
 
     Args:
-        path: path to yaml with file_name.y(a)ml
+        engine: sqlalchemy engine
+        table: name of sql table
 
     Returns:
-        parsed yaml as dict
+        max id
     """
-    with open(path, 'r') as stream:
-        file = yaml.safe_load(stream)
-    return file
-
-
-def fetch_max_id(engine: sqlalchemy.engine, table: str) -> int:
     query = f'''
     SELECT estate_id 
     FROM {table}
