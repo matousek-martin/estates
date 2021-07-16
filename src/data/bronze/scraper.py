@@ -86,6 +86,7 @@ def parse(estate: Dict) -> Dict:
         "estate_title": extract(estate, "name.value"),
         "estate_description_short": extract(estate, "meta_description"),
         "estate_description_long": extract(estate, "text.value"),
+        "address": extract(estate, 'locality.value'),
         "estate_category_main_cb": extract(estate, "seo.category_main_cb"),
         "estate_disposition": extract(estate, "seo.category_sub_cb"),
         "estate_rental_or_sell": extract(estate, "seo.category_type_cb"),
